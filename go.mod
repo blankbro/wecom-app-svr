@@ -1,4 +1,4 @@
-module wecom-app-svr
+module github.com/blankbro/wecom-app-svr
 
 go 1.22
 
