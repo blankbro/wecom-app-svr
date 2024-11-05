@@ -26,7 +26,6 @@ type WeCom struct {
 }
 
 func main() {
-
 	var configPath = os.Getenv("config_path")
 	if configPath == "" {
 		log.Println("config_path is empty, 从可执行文件所在目录读取配置文件")

@@ -87,8 +87,12 @@ func (was *WecomAppSvr) Shutdown(ctx context.Context) error {
 	return was.Srv.Shutdown(ctx)
 }
 
-func Run(addr string, path string, token string, aesKey string, corpId string) {
-	was := NewWecomAppSvr(addr, path, token, aesKey, corpId)
+func Run(port string, path string, token string, aesKey string, corpId string) {
+	if port == "" {
+		port = "8080"
+		log.Printf("port is blank use default port: %s", port)
+	}
+	was := NewWecomAppSvr(fmt.Sprintf(":%s", port), path, token, aesKey, corpId)
 	errChan, err := was.ListenAndServe()
 	if err != nil {
 		log.Println("web server start failed:", err)
