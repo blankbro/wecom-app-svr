@@ -39,7 +39,7 @@ type WecomAppSvr struct {
 	Path       string
 	Srv        *http.Server
 	Wxcpt      *wxbizmsgcrypt.WXBizMsgCrypt
-	MsgHandler func(*MsgContent)
+	MsgHandler func(MsgContent)
 }
 
 func (was *WecomAppSvr) getHandler(w http.ResponseWriter, req *http.Request) {
@@ -99,7 +99,7 @@ func (was *WecomAppSvr) postHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	log.Printf("Unmarshal body: %+v", msgContent)
-	was.MsgHandler(&msgContent)
+	go was.MsgHandler(msgContent)
 	fmt.Fprintf(w, "success")
 }
 
@@ -110,7 +110,7 @@ func logging(next http.Handler) http.Handler {
 	})
 }
 
-func NewWecomAppSvr(addr string, path string, token string, aesKey string, corpId string, msgHandler func(*MsgContent)) *WecomAppSvr {
+func NewWecomAppSvr(addr string, path string, token string, aesKey string, corpId string, msgHandler func(MsgContent)) *WecomAppSvr {
 	was := &WecomAppSvr{
 		Token:      token,
 		AesKey:     aesKey,
@@ -148,7 +148,7 @@ func (was *WecomAppSvr) Shutdown(ctx context.Context) error {
 	return was.Srv.Shutdown(ctx)
 }
 
-func Run(port string, path string, token string, aesKey string, corpId string, msgHandler func(*MsgContent)) {
+func Run(port string, path string, token string, aesKey string, corpId string, msgHandler func(MsgContent)) {
 	if port == "" {
 		port = "8080"
 		log.Printf("port is blank use default port: %s", port)

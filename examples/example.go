@@ -63,7 +63,7 @@ func main() {
 	wecom_app_svr.Run(
 		config.Server.Port, config.Wecom.Path,
 		config.Wecom.Token, config.Wecom.AesKey, config.Wecom.CorpId,
-		func(msgContent *wecom_app_svr.MsgContent) {
+		func(msgContent wecom_app_svr.MsgContent) {
 			// 编写自己的逻辑
 		},
 	)
