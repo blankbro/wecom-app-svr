@@ -7,3 +7,5 @@ require (
 	github.com/sbzhu/weworkapi_golang v0.0.0-20210525081115-1799804a7c8d // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/blankbro/wecom-app-svr => ./wecom-app-svr

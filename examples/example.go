@@ -1,11 +1,11 @@
 package main
 
 import (
+	"github.com/blankbro/wecom-app-svr"
 	"gopkg.in/yaml.v3"
 	"log"
 	"os"
 	"path/filepath"
-	"wecom-app-svr"
 )
 
 type Config struct {
