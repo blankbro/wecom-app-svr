@@ -25,7 +25,7 @@ type WeCom struct {
 
 func main() {
 	// 读取配置文件
-	bytes, err := os.ReadFile("examples/config.yaml")
+	bytes, err := os.ReadFile("examples/config.yml")
 	if err != nil {
 		log.Printf("读取配置文件失败: %v\n", err)
 		return
