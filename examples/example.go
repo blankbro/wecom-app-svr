@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"gopkg.in/yaml.v3"
 	"log"
 	"os"
@@ -62,10 +61,10 @@ func main() {
 	log.Printf("config wecom → %+v\n", config.Wecom)
 
 	wecom_app_svr.Run(
-		fmt.Sprintf(":%s", config.Server.Port),
-		config.Wecom.Path,
-		config.Wecom.Token,
-		config.Wecom.AesKey,
-		config.Wecom.CorpId,
+		config.Server.Port, config.Wecom.Path,
+		config.Wecom.Token, config.Wecom.AesKey, config.Wecom.CorpId,
+		func(msgContent *wecom_app_svr.MsgContent) {
+			// 编写自己的逻辑
+		},
 	)
 }
