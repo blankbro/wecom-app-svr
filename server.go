@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/sbzhu/weworkapi_golang/wxbizmsgcrypt"
+	"github.com/sirupsen/logrus"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -45,7 +45,7 @@ type WecomAppSvr struct {
 func (was *WecomAppSvr) getHandler(w http.ResponseWriter, req *http.Request) {
 	queryValues, parseErr := url.ParseQuery(req.URL.RawQuery)
 	if parseErr != nil {
-		log.Printf("Error parsing query string: %v", parseErr)
+		logrus.Infof("Error parsing query string: %v", parseErr)
 		http.Error(w, parseErr.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -56,19 +56,19 @@ func (was *WecomAppSvr) getHandler(w http.ResponseWriter, req *http.Request) {
 
 	msgBytes, cryptErr := was.Wxcpt.VerifyURL(msgSignature, timestamp, nonce, echostr)
 	if nil != cryptErr {
-		log.Printf("DecryptMsg fail: %v", cryptErr)
+		logrus.Infof("DecryptMsg fail: %v", cryptErr)
 		http.Error(w, cryptErr.ErrMsg, http.StatusInternalServerError)
 		return
 	}
 
 	w.Write(msgBytes)
-	log.Printf("DecryptMsg successful, decrypted msg is %s", string(msgBytes))
+	logrus.Infof("DecryptMsg successful, decrypted msg is %s", string(msgBytes))
 }
 
 func (was *WecomAppSvr) postHandler(w http.ResponseWriter, req *http.Request) {
 	queryValues, parseErr := url.ParseQuery(req.URL.RawQuery)
 	if parseErr != nil {
-		log.Printf("Error parsing query string: %v", parseErr)
+		logrus.Infof("Error parsing query string: %v", parseErr)
 		http.Error(w, parseErr.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -81,31 +81,31 @@ func (was *WecomAppSvr) postHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	defer req.Body.Close()
-	//log.Printf("body: %s", string(bodyBytes))
+	//logrus.Infof("body: %s", string(bodyBytes))
 
 	msgBytes, cryptErr := was.Wxcpt.DecryptMsg(msgSignature, timestamp, nonce, bodyBytes)
 	if nil != cryptErr {
-		log.Printf("Decrypt body fail: %v", cryptErr)
+		logrus.Infof("Decrypt body fail: %v", cryptErr)
 		http.Error(w, cryptErr.ErrMsg, http.StatusInternalServerError)
 		return
 	}
-	log.Printf("decrypt body:  %s", string(msgBytes))
+	logrus.Infof("decrypt body:  %s", string(msgBytes))
 
 	var msgContent MsgContent
 	unmErr := xml.Unmarshal(msgBytes, &msgContent)
 	if nil != unmErr {
-		log.Printf("Unmarshal fail")
+		logrus.Infof("Unmarshal fail")
 		http.Error(w, unmErr.Error(), http.StatusInternalServerError)
 		return
 	}
-	log.Printf("Unmarshal body: %+v", msgContent)
+	logrus.Infof("Unmarshal body: %+v", msgContent)
 	go was.MsgHandler(msgContent)
 	fmt.Fprintf(w, "success")
 }
 
 func logging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		log.Printf("from %s, %s %s", req.RemoteAddr, req.Method, req.RequestURI)
+		logrus.Infof("from %s, %s %s", req.RemoteAddr, req.Method, req.RequestURI)
 		next.ServeHTTP(w, req)
 	})
 }
@@ -151,38 +151,35 @@ func (was *WecomAppSvr) Shutdown(ctx context.Context) error {
 func Run(port string, path string, token string, aesKey string, corpId string, msgHandler func(MsgContent)) {
 	if port == "" {
 		port = "8080"
-		log.Printf("port is blank use default port: %s", port)
+		logrus.Infof("port is blank use default port: %s", port)
 	}
 	was := NewWecomAppSvr(fmt.Sprintf(":%s", port), path, token, aesKey, corpId, msgHandler)
 	errChan, err := was.ListenAndServe()
 	if err != nil {
-		log.Println("web server start failed:", err)
-		return
+		logrus.Fatalf("web server start failed: %v", err)
 	}
-	log.Println("=========>>> web server start ok <<<=========")
-	log.Println("=========>>> web server start ok <<<=========")
-	log.Println("=========>>> web server start ok <<<=========")
+	logrus.Infof("=========>>> web server start ok <<<=========")
+	logrus.Infof("=========>>> web server start ok <<<=========")
+	logrus.Infof("=========>>> web server start ok <<<=========")
 
 	killChan := make(chan os.Signal, 1)
 	signal.Notify(killChan, syscall.SIGINT, syscall.SIGTERM)
 
 	select {
 	case err = <-errChan:
-		log.Println("web server run failed:", err)
-		return
+		logrus.Fatalf("web server run failed: %v", err)
 	case <-killChan:
-		log.Println("program is exiting...")
+		logrus.Infof("program is exiting...")
 		ctx, cf := context.WithTimeout(context.Background(), time.Second)
 		defer cf()
 		err = was.Shutdown(ctx)
 	}
 
 	if err != nil {
-		log.Println("program exit error:", err)
-		return
+		logrus.Fatalf("program exit error: %v", err)
 	}
 
-	log.Println("=========>>> program exit ok <<<=========")
-	log.Println("=========>>> program exit ok <<<=========")
-	log.Println("=========>>> program exit ok <<<=========")
+	logrus.Infof("=========>>> program exit ok <<<=========")
+	logrus.Infof("=========>>> program exit ok <<<=========")
+	logrus.Infof("=========>>> program exit ok <<<=========")
 }

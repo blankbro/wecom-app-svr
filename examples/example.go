@@ -1,10 +1,14 @@
 package main
 
 import (
+	"fmt"
+	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/blankbro/wecom-app-svr"
+	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
-	"log"
 	"os"
+	"runtime"
+	"time"
 )
 
 type Config struct {
@@ -23,23 +27,37 @@ type WeCom struct {
 	Path   string
 }
 
+func init() {
+	// Trace > Debug > Info > Warn > Error > Fatal > Panic
+	logrus.SetLevel(logrus.InfoLevel)
+	// 打印源文件
+	logrus.SetReportCaller(true)
+	// 指定源文件格式
+	logrus.SetFormatter(&nested.Formatter{
+		HideKeys:        true,
+		TimestampFormat: time.DateTime,
+		CallerFirst:     true,
+		CustomCallerFormatter: func(frame *runtime.Frame) string {
+			return fmt.Sprintf(" %s:%d", frame.File, frame.Line)
+		},
+	})
+}
+
 func main() {
 	// 读取配置文件
 	bytes, err := os.ReadFile("examples/config.yml")
 	if err != nil {
-		log.Printf("读取配置文件失败: %v\n", err)
-		return
+		logrus.Fatalf("读取配置文件失败: %v", err)
 	}
 
 	config := Config{}
 	err = yaml.Unmarshal(bytes, &config)
 	if err != nil {
-		log.Println("解析 yaml 文件失败：", err)
-		return
+		logrus.Fatalf("解析 yaml 文件失败: %v", err)
 	}
 
-	log.Printf("config server → %+v\n", config.Server)
-	log.Printf("config wecom → %+v\n", config.Wecom)
+	logrus.Infof("config server → %+v", config.Server)
+	logrus.Infof("config wecom → %+v", config.Wecom)
 
 	wecom_app_svr.Run(
 		config.Server.Port, config.Wecom.Path,
