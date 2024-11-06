@@ -110,7 +110,7 @@ func EncryptMsgContent(msgContent MsgContent, timestamp string, nonce string) ([
 		"<AgentID>" + fmt.Sprintf("%d", msgContent.AgentId) + "</AgentID>" +
 		"</xml>"
 
-	// timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	//  timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 	// nonce := uuid.NewV4().String()
 
 	var err error
