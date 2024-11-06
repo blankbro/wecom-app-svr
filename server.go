@@ -39,7 +39,7 @@ type WecomAppSvr struct {
 	Path       string
 	Srv        *http.Server
 	Wxcpt      *wxbizmsgcrypt.WXBizMsgCrypt
-	MsgHandler func(MsgContent)
+	MsgHandler func(http.ResponseWriter, MsgContent)
 }
 
 func (was *WecomAppSvr) getHandler(w http.ResponseWriter, req *http.Request) {
@@ -81,7 +81,7 @@ func (was *WecomAppSvr) postHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	defer req.Body.Close()
-	//logrus.Infof("body: %s", string(bodyBytes))
+	// logrus.Infof("body: %s", string(bodyBytes))
 
 	msgBytes, cryptErr := was.Wxcpt.DecryptMsg(msgSignature, timestamp, nonce, bodyBytes)
 	if nil != cryptErr {
@@ -98,9 +98,8 @@ func (was *WecomAppSvr) postHandler(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, unmErr.Error(), http.StatusInternalServerError)
 		return
 	}
-	logrus.Infof("Unmarshal body: %+v", msgContent)
-	go was.MsgHandler(msgContent)
-	fmt.Fprintf(w, "success")
+	// logrus.Infof("Unmarshal body: %+v", msgContent)
+	was.MsgHandler(w, msgContent)
 }
 
 func logging(next http.Handler) http.Handler {
@@ -110,7 +109,7 @@ func logging(next http.Handler) http.Handler {
 	})
 }
 
-func NewWecomAppSvr(addr string, path string, token string, aesKey string, corpId string, msgHandler func(MsgContent)) *WecomAppSvr {
+func NewWecomAppSvr(addr string, path string, token string, aesKey string, corpId string, msgHandler func(http.ResponseWriter, MsgContent)) *WecomAppSvr {
 	was := &WecomAppSvr{
 		Token:      token,
 		AesKey:     aesKey,
@@ -148,7 +147,7 @@ func (was *WecomAppSvr) Shutdown(ctx context.Context) error {
 	return was.Srv.Shutdown(ctx)
 }
 
-func Run(port string, path string, token string, aesKey string, corpId string, msgHandler func(MsgContent)) {
+func Run(port string, path string, token string, aesKey string, corpId string, msgHandler func(http.ResponseWriter, MsgContent)) {
 	if port == "" {
 		port = "8080"
 		logrus.Infof("port is blank use default port: %s", port)
