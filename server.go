@@ -3,6 +3,7 @@ package wecom_app_svr
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/sbzhu/weworkapi_golang/wxbizmsgcrypt"
@@ -32,17 +33,13 @@ type MsgContent struct {
 	MediaId string `xml:"MediaId"`
 }
 
-type WecomAppSvr struct {
-	Token      string
-	AesKey     string
-	CorpId     string
-	Path       string
-	Srv        *http.Server
-	Wxcpt      *wxbizmsgcrypt.WXBizMsgCrypt
-	MsgHandler func(http.ResponseWriter, MsgContent)
-}
+var (
+	srv        *http.Server
+	wxcpt      *wxbizmsgcrypt.WXBizMsgCrypt
+	msgHandler func(http.ResponseWriter, MsgContent)
+)
 
-func (was *WecomAppSvr) getHandler(w http.ResponseWriter, req *http.Request) {
+func getHandler(w http.ResponseWriter, req *http.Request) {
 	queryValues, parseErr := url.ParseQuery(req.URL.RawQuery)
 	if parseErr != nil {
 		logrus.Infof("Error parsing query string: %v", parseErr)
@@ -54,7 +51,7 @@ func (was *WecomAppSvr) getHandler(w http.ResponseWriter, req *http.Request) {
 	nonce := queryValues.Get("nonce")
 	echostr := queryValues.Get("echostr")
 
-	msgBytes, cryptErr := was.Wxcpt.VerifyURL(msgSignature, timestamp, nonce, echostr)
+	msgBytes, cryptErr := wxcpt.VerifyURL(msgSignature, timestamp, nonce, echostr)
 	if nil != cryptErr {
 		logrus.Infof("DecryptMsg fail: %v", cryptErr)
 		http.Error(w, cryptErr.ErrMsg, http.StatusInternalServerError)
@@ -65,7 +62,7 @@ func (was *WecomAppSvr) getHandler(w http.ResponseWriter, req *http.Request) {
 	logrus.Infof("DecryptMsg successful, decrypted msg is %s", string(msgBytes))
 }
 
-func (was *WecomAppSvr) postHandler(w http.ResponseWriter, req *http.Request) {
+func postHandler(w http.ResponseWriter, req *http.Request) {
 	queryValues, parseErr := url.ParseQuery(req.URL.RawQuery)
 	if parseErr != nil {
 		logrus.Infof("Error parsing query string: %v", parseErr)
@@ -83,7 +80,7 @@ func (was *WecomAppSvr) postHandler(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 	// logrus.Infof("body: %s", string(bodyBytes))
 
-	msgBytes, cryptErr := was.Wxcpt.DecryptMsg(msgSignature, timestamp, nonce, bodyBytes)
+	msgBytes, cryptErr := wxcpt.DecryptMsg(msgSignature, timestamp, nonce, bodyBytes)
 	if nil != cryptErr {
 		logrus.Infof("Decrypt body fail: %v", cryptErr)
 		http.Error(w, cryptErr.ErrMsg, http.StatusInternalServerError)
@@ -99,7 +96,37 @@ func (was *WecomAppSvr) postHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	// logrus.Infof("Unmarshal body: %+v", msgContent)
-	was.MsgHandler(w, msgContent)
+	msgHandler(w, msgContent)
+}
+
+func EncryptMsgContent(msgContent MsgContent, timestamp string, nonce string) (*string, *error) {
+	respData := "<xml>" +
+		"<ToUserName><![CDATA[" + msgContent.ToUsername + "]]></ToUserName>" +
+		"<FromUserName><![CDATA[" + msgContent.FromUsername + "]]></FromUserName>" +
+		"<CreateTime>" + fmt.Sprintf("%d", msgContent.CreateTime) + "</CreateTime>" +
+		"<MsgType><![CDATA[" + msgContent.MsgType + "]]></MsgType>" +
+		"<Content><![CDATA[" + msgContent.Content + "]]></Content>" +
+		"<MsgId>" + msgContent.MsgId + "</MsgId>" +
+		"<AgentID>" + fmt.Sprintf("%d", msgContent.AgentId) + "</AgentID>" +
+		"</xml>"
+
+	// timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	// nonce := uuid.NewV4().String()
+
+	var err error
+	if wxcpt == nil {
+		err = errors.New("wxcpt is not init, you need to call Run() first")
+		return nil, &err
+	}
+
+	encryptMsgBytes, cryptErr := wxcpt.EncryptMsg(respData, timestamp, nonce)
+	if nil != cryptErr {
+		err = fmt.Errorf("DecryptMsg fail: %v", cryptErr)
+		return nil, &err
+	}
+
+	encryptMsg := string(encryptMsgBytes)
+	return &encryptMsg, nil
 }
 
 func logging(next http.Handler) http.Handler {
@@ -109,29 +136,22 @@ func logging(next http.Handler) http.Handler {
 	})
 }
 
-func NewWecomAppSvr(addr string, path string, token string, aesKey string, corpId string, msgHandler func(http.ResponseWriter, MsgContent)) *WecomAppSvr {
-	was := &WecomAppSvr{
-		Token:      token,
-		AesKey:     aesKey,
-		CorpId:     corpId,
-		Srv:        &http.Server{Addr: addr},
-		Wxcpt:      wxbizmsgcrypt.NewWXBizMsgCrypt(token, aesKey, corpId, wxbizmsgcrypt.XmlType),
-		MsgHandler: msgHandler,
-	}
+func newWecomAppSvr(addr string, path string, token string, aesKey string, corpId string, msgHandler func(http.ResponseWriter, MsgContent)) {
+	srv = &http.Server{Addr: addr}
+	wxcpt = wxbizmsgcrypt.NewWXBizMsgCrypt(token, aesKey, corpId, wxbizmsgcrypt.XmlType)
+	msgHandler = msgHandler
 
 	router := mux.NewRouter()
-	router.HandleFunc(path, was.getHandler).Methods("GET")
-	router.HandleFunc(path, was.postHandler).Methods("POST")
-
-	was.Srv.Handler = logging(router)
-	return was
+	router.HandleFunc(path, getHandler).Methods("GET")
+	router.HandleFunc(path, postHandler).Methods("POST")
+	srv.Handler = logging(router)
 }
 
-func (was *WecomAppSvr) ListenAndServe() (<-chan error, error) {
+func listenAndServe() (<-chan error, error) {
 	var err error
 	errChan := make(chan error)
 	go func() {
-		err = was.Srv.ListenAndServe()
+		err = srv.ListenAndServe()
 		errChan <- err
 	}()
 
@@ -143,8 +163,8 @@ func (was *WecomAppSvr) ListenAndServe() (<-chan error, error) {
 	}
 }
 
-func (was *WecomAppSvr) Shutdown(ctx context.Context) error {
-	return was.Srv.Shutdown(ctx)
+func shutdown(ctx context.Context) error {
+	return srv.Shutdown(ctx)
 }
 
 func Run(port string, path string, token string, aesKey string, corpId string, msgHandler func(http.ResponseWriter, MsgContent)) {
@@ -152,8 +172,8 @@ func Run(port string, path string, token string, aesKey string, corpId string, m
 		port = "8080"
 		logrus.Infof("port is blank use default port: %s", port)
 	}
-	was := NewWecomAppSvr(fmt.Sprintf(":%s", port), path, token, aesKey, corpId, msgHandler)
-	errChan, err := was.ListenAndServe()
+	newWecomAppSvr(fmt.Sprintf(":%s", port), path, token, aesKey, corpId, msgHandler)
+	errChan, err := listenAndServe()
 	if err != nil {
 		logrus.Fatalf("web server start failed: %v", err)
 	}
@@ -171,7 +191,7 @@ func Run(port string, path string, token string, aesKey string, corpId string, m
 		logrus.Infof("program is exiting...")
 		ctx, cf := context.WithTimeout(context.Background(), time.Second)
 		defer cf()
-		err = was.Shutdown(ctx)
+		err = shutdown(ctx)
 	}
 
 	if err != nil {
