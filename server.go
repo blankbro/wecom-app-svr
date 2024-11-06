@@ -99,7 +99,7 @@ func postHandler(w http.ResponseWriter, req *http.Request) {
 	msgHandler(w, msgContent)
 }
 
-func EncryptMsgContent(msgContent MsgContent, timestamp string, nonce string) (*string, *error) {
+func EncryptMsgContent(msgContent MsgContent, timestamp string, nonce string) ([]byte, *error) {
 	respData := "<xml>" +
 		"<ToUserName><![CDATA[" + msgContent.ToUsername + "]]></ToUserName>" +
 		"<FromUserName><![CDATA[" + msgContent.FromUsername + "]]></FromUserName>" +
@@ -125,8 +125,7 @@ func EncryptMsgContent(msgContent MsgContent, timestamp string, nonce string) (*
 		return nil, &err
 	}
 
-	encryptMsg := string(encryptMsgBytes)
-	return &encryptMsg, nil
+	return encryptMsgBytes, nil
 }
 
 func logging(next http.Handler) http.Handler {
