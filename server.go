@@ -34,9 +34,9 @@ type MsgContent struct {
 }
 
 var (
-	srv        *http.Server
-	wxcpt      *wxbizmsgcrypt.WXBizMsgCrypt
-	msgHandler func(http.ResponseWriter, MsgContent)
+	_srv        *http.Server
+	_wxcpt      *wxbizmsgcrypt.WXBizMsgCrypt
+	_msgHandler func(http.ResponseWriter, MsgContent)
 )
 
 func getHandler(w http.ResponseWriter, req *http.Request) {
@@ -51,7 +51,7 @@ func getHandler(w http.ResponseWriter, req *http.Request) {
 	nonce := queryValues.Get("nonce")
 	echostr := queryValues.Get("echostr")
 
-	msgBytes, cryptErr := wxcpt.VerifyURL(msgSignature, timestamp, nonce, echostr)
+	msgBytes, cryptErr := _wxcpt.VerifyURL(msgSignature, timestamp, nonce, echostr)
 	if nil != cryptErr {
 		logrus.Infof("DecryptMsg fail: %v", cryptErr)
 		http.Error(w, cryptErr.ErrMsg, http.StatusInternalServerError)
@@ -80,7 +80,7 @@ func postHandler(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 	// logrus.Infof("body: %s", string(bodyBytes))
 
-	msgBytes, cryptErr := wxcpt.DecryptMsg(msgSignature, timestamp, nonce, bodyBytes)
+	msgBytes, cryptErr := _wxcpt.DecryptMsg(msgSignature, timestamp, nonce, bodyBytes)
 	if nil != cryptErr {
 		logrus.Infof("Decrypt body fail: %v", cryptErr)
 		http.Error(w, cryptErr.ErrMsg, http.StatusInternalServerError)
@@ -96,7 +96,7 @@ func postHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	// logrus.Infof("Unmarshal body: %+v", msgContent)
-	msgHandler(w, msgContent)
+	_msgHandler(w, msgContent)
 }
 
 func EncryptMsgContent(msgContent MsgContent, timestamp string, nonce string) ([]byte, *error) {
@@ -114,12 +114,12 @@ func EncryptMsgContent(msgContent MsgContent, timestamp string, nonce string) ([
 	// nonce := uuid.NewV4().String()
 
 	var err error
-	if wxcpt == nil {
-		err = errors.New("wxcpt is not init, you need to call Run() first")
+	if _wxcpt == nil {
+		err = errors.New("_wxcpt is not init, you need to call Run() first")
 		return nil, &err
 	}
 
-	encryptMsgBytes, cryptErr := wxcpt.EncryptMsg(respData, timestamp, nonce)
+	encryptMsgBytes, cryptErr := _wxcpt.EncryptMsg(respData, timestamp, nonce)
 	if nil != cryptErr {
 		err = fmt.Errorf("DecryptMsg fail: %v", cryptErr)
 		return nil, &err
@@ -136,21 +136,21 @@ func logging(next http.Handler) http.Handler {
 }
 
 func newWecomAppSvr(addr string, path string, token string, aesKey string, corpId string, msgHandler func(http.ResponseWriter, MsgContent)) {
-	srv = &http.Server{Addr: addr}
-	wxcpt = wxbizmsgcrypt.NewWXBizMsgCrypt(token, aesKey, corpId, wxbizmsgcrypt.XmlType)
-	msgHandler = msgHandler
+	_srv = &http.Server{Addr: addr}
+	_wxcpt = wxbizmsgcrypt.NewWXBizMsgCrypt(token, aesKey, corpId, wxbizmsgcrypt.XmlType)
+	_msgHandler = msgHandler
 
 	router := mux.NewRouter()
 	router.HandleFunc(path, getHandler).Methods("GET")
 	router.HandleFunc(path, postHandler).Methods("POST")
-	srv.Handler = logging(router)
+	_srv.Handler = logging(router)
 }
 
 func listenAndServe() (<-chan error, error) {
 	var err error
 	errChan := make(chan error)
 	go func() {
-		err = srv.ListenAndServe()
+		err = _srv.ListenAndServe()
 		errChan <- err
 	}()
 
@@ -163,7 +163,7 @@ func listenAndServe() (<-chan error, error) {
 }
 
 func shutdown(ctx context.Context) error {
-	return srv.Shutdown(ctx)
+	return _srv.Shutdown(ctx)
 }
 
 func Run(port string, path string, token string, aesKey string, corpId string, msgHandler func(http.ResponseWriter, MsgContent)) {

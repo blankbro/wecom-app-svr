@@ -65,6 +65,7 @@ func main() {
 		config.Wecom.Token, config.Wecom.AesKey, config.Wecom.CorpId,
 		func(w http.ResponseWriter, msgContent wecom_app_svr.MsgContent) {
 			// 编写自己的逻辑
+			logrus.Infof("msgContent: %+v", msgContent)
 		},
 	)
 }
