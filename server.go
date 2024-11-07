@@ -21,7 +21,7 @@ type MsgContent struct {
 	FromUsername string `xml:"FromUserName"`
 	ToUsername   string `xml:"ToUserName"`
 	AgentId      uint32 `xml:"AgentID"`
-	CreateTime   uint32 `xml:"CreateTime"`
+	CreateTime   uint64 `xml:"CreateTime"`
 	MsgType      string `xml:"MsgType"`
 	MsgId        string `xml:"MsgId"`
 
