@@ -20,8 +20,8 @@ import (
 type MsgContent struct {
 	FromUsername string `xml:"FromUserName"`
 	ToUsername   string `xml:"ToUserName"`
-	AgentId      uint32 `xml:"AgentID"`
-	CreateTime   uint64 `xml:"CreateTime"`
+	AgentId      int32  `xml:"AgentID"`
+	CreateTime   int64  `xml:"CreateTime"`
 	MsgType      string `xml:"MsgType"`
 	MsgId        string `xml:"MsgId"`
 
