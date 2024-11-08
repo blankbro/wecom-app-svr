@@ -139,7 +139,7 @@ func logging(next http.Handler) http.Handler {
 	})
 }
 
-func newWecomAppSvr(addr string, path string, token string, aesKey string, corpId string, msgHandler func(http.ResponseWriter, MsgContent)) {
+func initWecomAppSvr(addr string, path string, token string, aesKey string, corpId string, msgHandler func(http.ResponseWriter, MsgContent)) {
 	_srv = &http.Server{Addr: addr}
 	_wxcpt = wxbizmsgcrypt.NewWXBizMsgCrypt(token, aesKey, corpId, wxbizmsgcrypt.XmlType)
 	_msgHandler = msgHandler
@@ -175,7 +175,7 @@ func Run(port string, path string, token string, aesKey string, corpId string, m
 		port = "8080"
 		logrus.Infof("port is blank use default port: %s", port)
 	}
-	newWecomAppSvr(fmt.Sprintf(":%s", port), path, token, aesKey, corpId, msgHandler)
+	initWecomAppSvr(fmt.Sprintf(":%s", port), path, token, aesKey, corpId, msgHandler)
 	errChan, err := listenAndServe()
 	if err != nil {
 		logrus.Fatalf("web server start failed: %v", err)
