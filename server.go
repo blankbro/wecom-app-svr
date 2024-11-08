@@ -31,6 +31,10 @@ type MsgContent struct {
 	// 图片
 	PicUrl  string `xml:"PicUrl"`
 	MediaId string `xml:"MediaId"`
+
+	// 事件
+	Event    string `xml:"Event"`
+	EventKey string `xml:"EventKey"`
 }
 
 var (
